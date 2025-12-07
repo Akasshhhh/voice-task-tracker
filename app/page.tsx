@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
+import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs"
+import { Button } from "@/components/ui/button"
 import { Header } from "@/components/header"
 import { VoiceRecorder } from "@/components/voice-recorder"
 import { ParsedPreviewModal } from "@/components/parsed-preview-modal"
@@ -120,63 +122,77 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <Header viewMode={viewMode} onViewModeChange={setViewMode} />
 
-      <main className="container mx-auto px-4 py-6 space-y-6">
-        {/* Voice Recorder Section */}
-        <section className="p-6 bg-card rounded-xl border shadow-sm" aria-label="Voice input section">
-          <h2 className="text-lg font-semibold mb-4">Add New Task</h2>
-          <VoiceRecorder onTranscriptComplete={handleTranscriptComplete} />
-        </section>
+      <SignedOut>
+        <main className="container mx-auto px-4 py-12">
+          <div className="max-w-md mx-auto p-6 bg-card border rounded-xl text-center space-y-4">
+            <h2 className="text-xl font-semibold">Welcome to Voice Task Tracker</h2>
+            <p className="text-sm text-muted-foreground">Sign in to create and manage your tasks.</p>
+            <SignInButton mode="modal">
+              <Button>Sign in</Button>
+            </SignInButton>
+          </div>
+        </main>
+      </SignedOut>
 
-        {/* Filters Section */}
-        <section aria-label="Task filters">
-          <Filters
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            priorityFilter={priorityFilter}
-            onPriorityChange={setPriorityFilter}
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            onClearFilters={handleClearFilters}
-          />
-        </section>
+      <SignedIn>
+        <main className="container mx-auto px-4 py-6 space-y-6">
+          {/* Voice Recorder Section */}
+          <section className="p-6 bg-card rounded-xl border shadow-sm" aria-label="Voice input section">
+            <h2 className="text-lg font-semibold mb-4">Add New Task</h2>
+            <VoiceRecorder onTranscriptComplete={handleTranscriptComplete} />
+          </section>
 
-        {/* Tasks Display Section */}
-        <section aria-label="Tasks">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-            </div>
-          ) : viewMode === "board" ? (
-            <KanbanBoard
-              tasks={filteredTasks}
-              onStatusChange={handleStatusChange}
-              onEditTask={handleEditTask}
-              onDeleteTask={handleDeleteTask}
+          {/* Filters Section */}
+          <section aria-label="Task filters">
+            <Filters
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              priorityFilter={priorityFilter}
+              onPriorityChange={setPriorityFilter}
+              statusFilter={statusFilter}
+              onStatusChange={setStatusFilter}
+              onClearFilters={handleClearFilters}
             />
-          ) : (
-            <TaskList tasks={filteredTasks} onEditTask={handleEditTask} onDeleteTask={handleDeleteTask} />
-          )}
-        </section>
-      </main>
+          </section>
 
-      {/* Preview Modal for New Tasks */}
-      {currentParsedTask && (
-        <ParsedPreviewModal
-          isOpen={showPreviewModal}
-          onClose={() => setShowPreviewModal(false)}
-          onSave={handleSaveNewTask}
-          transcript={currentTranscript}
-          parsedTask={currentParsedTask}
+          {/* Tasks Display Section */}
+          <section aria-label="Tasks">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : viewMode === "board" ? (
+              <KanbanBoard
+                tasks={filteredTasks}
+                onStatusChange={handleStatusChange}
+                onEditTask={handleEditTask}
+                onDeleteTask={handleDeleteTask}
+              />
+            ) : (
+              <TaskList tasks={filteredTasks} onEditTask={handleEditTask} onDeleteTask={handleDeleteTask} />
+            )}
+          </section>
+        </main>
+
+        {/* Preview Modal for New Tasks */}
+        {currentParsedTask && (
+          <ParsedPreviewModal
+            isOpen={showPreviewModal}
+            onClose={() => setShowPreviewModal(false)}
+            onSave={handleSaveNewTask}
+            transcript={currentTranscript}
+            parsedTask={currentParsedTask}
+          />
+        )}
+
+        {/* Edit Modal for Existing Tasks */}
+        <EditTaskModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          onSave={handleSaveEditedTask}
+          task={editingTask}
         />
-      )}
-
-      {/* Edit Modal for Existing Tasks */}
-      <EditTaskModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        onSave={handleSaveEditedTask}
-        task={editingTask}
-      />
+      </SignedIn>
 
       <Toaster />
     </div>

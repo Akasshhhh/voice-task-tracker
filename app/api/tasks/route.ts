@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import type { Prisma } from "@prisma/client"
+import { auth } from "@clerk/nextjs/server"
 
 import { prisma } from "@/lib/prisma"
 import { createTaskSchema } from "@/lib/validation"
@@ -22,7 +23,11 @@ function toResponseTask(task: Prisma.TaskGetPayload<{}>): Task {
 
 export async function GET() {
   try {
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+
     const tasks = await prisma.task.findMany({
+      where: { userId },
       orderBy: { createdAt: "desc" },
     })
 
@@ -35,6 +40,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+
     const body = await request.json()
     const parsed = createTaskSchema.safeParse(body)
 
@@ -46,6 +54,7 @@ export async function POST(request: Request) {
 
     const task = await prisma.task.create({
       data: {
+        userId,
         title: data.title,
         description: data.description ?? "",
         dueDate: data.due_date ? new Date(data.due_date) : null,

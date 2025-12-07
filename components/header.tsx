@@ -3,6 +3,7 @@
 import { Mic, LayoutGrid, List } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs"
 
 interface HeaderProps {
   viewMode: "board" | "list"
@@ -25,30 +26,40 @@ export function Header({ viewMode, onViewModeChange }: HeaderProps) {
             </div>
           </div>
 
-          {/* View Toggle */}
-          <div className="flex items-center gap-2 p-1 bg-muted rounded-lg">
-            <Button
-              variant={viewMode === "board" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => onViewModeChange("board")}
-              className={cn("gap-2", viewMode !== "board" && "text-muted-foreground")}
-              aria-label="Board view"
-              aria-pressed={viewMode === "board"}
-            >
-              <LayoutGrid className="h-4 w-4" />
-              <span className="hidden sm:inline">Board</span>
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => onViewModeChange("list")}
-              className={cn("gap-2", viewMode !== "list" && "text-muted-foreground")}
-              aria-label="List view"
-              aria-pressed={viewMode === "list"}
-            >
-              <List className="h-4 w-4" />
-              <span className="hidden sm:inline">List</span>
-            </Button>
+          {/* Right Controls */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 p-1 bg-muted rounded-lg">
+              <Button
+                variant={viewMode === "board" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => onViewModeChange("board")}
+                className={cn("gap-2", viewMode !== "board" && "text-muted-foreground")}
+                aria-label="Board view"
+                aria-pressed={viewMode === "board"}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                <span className="hidden sm:inline">Board</span>
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => onViewModeChange("list")}
+                className={cn("gap-2", viewMode !== "list" && "text-muted-foreground")}
+                aria-label="List view"
+                aria-pressed={viewMode === "list"}
+              >
+                <List className="h-4 w-4" />
+                <span className="hidden sm:inline">List</span>
+              </Button>
+            </div>
+            <SignedOut>
+              <SignInButton mode="modal">
+                <Button size="sm" variant="outline">Sign in</Button>
+              </SignInButton>
+            </SignedOut>
+            <SignedIn>
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import type { Prisma } from "@prisma/client"
+import { auth } from "@clerk/nextjs/server"
 
 import { prisma } from "@/lib/prisma"
 import { updateTaskSchema } from "@/lib/validation"
@@ -22,8 +23,10 @@ function toResponseTask(task: Prisma.TaskGetPayload<{}>): Task {
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     const { id } = await params
-    const task = await prisma.task.findUnique({ where: { id } })
+    const task = await prisma.task.findFirst({ where: { id, userId } })
     if (!task) return NextResponse.json({ message: "Not found" }, { status: 404 })
     return NextResponse.json(toResponseTask(task))
   } catch (error) {
@@ -34,6 +37,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     const body = await req.json()
     const parsed = updateTaskSchema.safeParse(body)
     if (!parsed.success) {
@@ -42,6 +47,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const data = parsed.data
     const { id } = await params
+
+    const existing = await prisma.task.findFirst({ where: { id, userId } })
+    if (!existing) return NextResponse.json({ message: "Not found" }, { status: 404 })
 
     const updated = await prisma.task.update({
       where: { id },
@@ -63,7 +71,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     const { id } = await params
+    const existing = await prisma.task.findFirst({ where: { id, userId } })
+    if (!existing) return NextResponse.json({ message: "Not found" }, { status: 404 })
     await prisma.task.delete({ where: { id } })
     return new NextResponse(null, { status: 204 })
   } catch (error) {

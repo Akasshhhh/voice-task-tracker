@@ -1,6 +1,242 @@
 # Voice Task Tracker
 
-A voice-enabled task tracker that lets you speak your tasks into existence. Built with Next.js, TypeScript, and the Web Speech API.
+Voice‑enabled task tracker with Kanban/List UI, AI-powered parsing, and user authentication.
+
+This repository is a single Next.js app (full‑stack). There is no separate `/frontend` or `/backend` folder; API routes live under `app/api/*` and Prisma connects to Postgres.
+
+## Repo Structure
+
+```
+app/                # Next.js App Router pages + API route handlers
+components/         # UI components (shadcn/ui)
+hooks/              # Client hooks
+lib/                # Prisma client, types, utils, validation, parsing helpers
+prisma/             # Prisma schema and migrations
+public/             # Static assets
+styles/             # Global styles
+```
+
+## .env.example
+
+All required environment variables (no secrets) are listed in `.env.example`. Copy to `.env` and/or `.env.local` and fill in values:
+
+```
+cp .env.example .env
+cp .env.example .env.local
+```
+
+---
+
+## 1) Project Setup
+
+### a. Prerequisites
+
+- Node.js 18+
+- PostgreSQL database (e.g., Supabase/Postgres)
+- Clerk account (for authentication)
+- Optional: OpenAI API key (for AI parsing; falls back to local parser if absent)
+
+### b. Install steps
+
+```
+npm install
+```
+
+### c. How to run everything locally
+
+1. Create and fill env files
+   - `.env` (server-side secrets):
+     - `DATABASE_URL`
+     - `CLERK_SECRET_KEY`
+     - Optional: `OPENAI_API_KEY`, `OPENAI_MODEL` (default `gpt-4o-mini`)
+   - `.env.local` (client-visible):
+     - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+
+2. Database migrate and generate Prisma client
+
+```
+npx prisma migrate dev
+npx prisma generate
+```
+
+3. Start the app
+
+```
+npm run dev
+```
+
+4. Open http://localhost:3000
+
+### d. Seed data or initial scripts
+
+- No seed script is bundled. Create tasks via the UI or POST `/api/tasks`.
+
+---
+
+## 2) Tech Stack
+
+- Frontend: Next.js (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- Backend: Next.js Route Handlers (`app/api/*`)
+- DB: PostgreSQL via Prisma
+- Auth: Clerk (`@clerk/nextjs`)
+- AI provider: OpenAI Chat Completions (optional)
+- Utilities: `chrono-node` (date parsing), `zod` (validation), `@dnd-kit` (drag & drop)
+
+---
+
+## 3) API Documentation
+
+Base URL (local): `http://localhost:3000`
+
+- Auth: All task endpoints require a signed-in user (Clerk). The server scopes by `userId`.
+
+### GET /api/tasks
+
+Returns the current user’s tasks (newest first).
+
+Response 200
+
+```json
+[
+  {
+    "id": "...",
+    "title": "...",
+    "description": "...",
+    "due_date": "2025-01-01T10:00:00.000Z",
+    "priority": "Medium",
+    "status": "todo",
+    "transcript": "raw spoken text",
+    "stt_provider": "web-speech-api",
+    "created_at": "2025-01-01T09:00:00.000Z",
+    "updated_at": "2025-01-01T09:00:00.000Z"
+  }
+]
+```
+
+### POST /api/tasks
+
+Create a task for the signed-in user. Server assigns `userId`.
+
+Request body
+
+```json
+{
+  "title": "Finish report",
+  "description": "Add sales numbers",
+  "due_date": null,
+  "priority": "High",
+  "status": "todo",
+  "transcript": "Finish the report by Friday",
+  "stt_provider": "web-speech-api"
+}
+```
+
+Response 201
+
+```json
+{
+  "id": "...",
+  "title": "Finish report",
+  "description": "Add sales numbers",
+  "due_date": null,
+  "priority": "High",
+  "status": "todo",
+  "transcript": "Finish the report by Friday",
+  "stt_provider": "web-speech-api",
+  "created_at": "...",
+  "updated_at": "..."
+}
+```
+
+### GET /api/tasks/:id
+
+Returns the user’s task with the specified id, or 404 if not found/owned.
+
+### PUT /api/tasks/:id
+
+Updates fields on a task owned by the current user.
+
+Request body (partial allowed)
+
+```json
+{
+  "title": "Updated title",
+  "description": "Updated details",
+  "due_date": "2025-01-02T10:00:00.000Z",
+  "priority": "Low",
+  "status": "in-progress"
+}
+```
+
+### DELETE /api/tasks/:id
+
+Deletes a task owned by the current user.
+
+### POST /api/parse
+
+Parses natural language into a structured task. Uses OpenAI if `OPENAI_API_KEY` is set; otherwise falls back to the local parser.
+
+Request body
+
+```json
+{ "transcript": "Buy milk tomorrow morning, low priority" }
+```
+
+Response 200
+
+```json
+{
+  "parsed": {
+    "title": "Buy milk",
+    "description": "",
+    "due_date": "2025-01-02T08:00:00.000Z",
+    "priority": "Low",
+    "status": "todo"
+  }
+}
+```
+
+Error responses use JSON with a `message` field and appropriate HTTP status codes (400/401/404/422/500).
+
+---
+
+## 4) Decisions & Assumptions
+
+- Data model: Single `Task` table with `user_id` (nullable during migration), indexed by `user_id`.
+- Isolation: Enforced in the application layer using Clerk `userId` in all queries (`where: { userId }`).
+- Auth: Clerk middleware protects routes; UI is gated with `SignedIn`/`SignedOut`.
+- Parsing: OpenAI Chat Completions preferred; falls back to deterministic parser + `chrono-node` for natural date expressions.
+- Voice: Browser Web Speech API; if unsupported (e.g., Firefox), the UI provides a text input fallback.
+- Email: Not implemented; documented an approach for future work.
+- Lockfile: Use one package manager; commit either `package-lock.json` (npm) or `pnpm-lock.yaml` (pnpm), not both.
+
+---
+
+## 5) AI Tools Usage
+
+- Tools used: Cascade (AI coding assistant) to scaffold auth integration, API scoping, and documentation.
+- Helped with: Clerk integration plan, Prisma migration strategy, endpoint hardening, README authoring.
+- Approach: Iterative, tool-assisted edits with cautious migrations and type‑safe scoping.
+- Outcome: Faster implementation while keeping a clear separation of client/server concerns and security checks.
+
+---
+
+## Running locally (quick start)
+
+```
+cp .env.example .env
+cp .env.example .env.local
+npm install
+npx prisma migrate dev
+npm run dev
+```
+
+If you see `Clerk: auth() was called but Clerk can't detect usage of clerkMiddleware()`:
+
+- Ensure `middleware.ts` exists at the repo root and exports `clerkMiddleware()` with a proper `matcher`.
+- Restart `npm run dev` after adding middleware.
+
+---
 
 ## Features
 
@@ -10,18 +246,9 @@ A voice-enabled task tracker that lets you speak your tasks into existence. Buil
 - **List View**: Alternative table view for task management
 - **Responsive Design**: Works on desktop and mobile devices
 - **Accessibility**: Full keyboard navigation and screen reader support
-- **Offline Support**: Mock API mode for development without a backend
 
-## Tech Stack
 
-- **Framework**: Next.js 14+ with App Router
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Speech Recognition**: Web Speech API
-- **Date Parsing**: chrono-node
-- **Drag & Drop**: @dnd-kit
-- **State Management**: React hooks with optimistic updates
-- **UI Components**: shadcn/ui
+ 
 
 ## Getting Started
 
