@@ -28,9 +28,14 @@ Return ONLY a compact JSON object with keys: title, description, due_date, prior
 - status: one of todo, in-progress, done.
 No code blocks, no comments, no extra fields.`;
 
+export const runtime = "nodejs";
+
 export async function POST(req: Request) {
   try {
-    const { transcript } = (await req.json()) as { transcript?: string };
+    const { transcript, timezoneOffset } = (await req.json()) as {
+      transcript?: string;
+      timezoneOffset?: number; // minutes offset from UTC (e.g. IST = +330)
+    };
 
     if (
       !transcript ||
@@ -242,14 +247,23 @@ export async function POST(req: Request) {
     }
 
     // Prefer chrono-node for date resolution (handles "tomorrow", etc.)
-    const chronoDate = chrono.parseDate(transcript, new Date(), {
+    const rawDate = chrono.parseDate(transcript, new Date(), {
       forwardDate: true,
     });
-    if (chronoDate) {
-      parsedOut.due_date = chronoDate.toISOString();
+
+    if (rawDate) {
+      if (typeof timezoneOffset === "number") {
+        // timezoneOffset is minutes ahead of UTC (e.g. IST = 330)
+        const corrected = new Date(
+          rawDate.getTime() - timezoneOffset * 60 * 1000
+        );
+        parsedOut.due_date = corrected.toISOString();
+      } else {
+        // fallback: just use what chrono gave us
+        parsedOut.due_date = rawDate.toISOString();
+      }
     }
 
-    // If model omitted due_date/priority/status, defaulting above covers it.
     return NextResponse.json({ parsed: parsedOut });
   } catch (e) {
     console.error("openai.parse.error", e);

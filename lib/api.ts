@@ -1,15 +1,9 @@
-// API client for the Voice Task Tracker
-// Supports mock mode for offline development
-
 import type { Task, CreateTaskPayload, UpdateTaskPayload, ParseResponse } from "./types"
 import { parseTranscript } from "./parse"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ""
 const USE_REMOTE_PARSE = process.env.NEXT_PUBLIC_USE_REMOTE_PARSE === "true"
 
-// No mock API – all calls go to Next.js API routes
-
-// Generic fetch wrapper with error handling
 async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
@@ -67,8 +61,12 @@ export async function parseTranscriptRemote(transcript: string): Promise<ParseRe
   if (!USE_REMOTE_PARSE) {
     return { parsed: parseTranscript(transcript) }
   }
+
+  // Minutes offset from UTC, positive for timezones ahead of UTC (e.g. IST = 330)
+  const timezoneOffset = -new Date().getTimezoneOffset()
+
   return apiFetch<ParseResponse>("/api/parse", {
     method: "POST",
-    body: JSON.stringify({ transcript }),
+    body: JSON.stringify({ transcript, timezoneOffset }),
   })
 }
