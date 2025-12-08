@@ -62,11 +62,14 @@ export async function parseTranscriptRemote(transcript: string): Promise<ParseRe
     return { parsed: parseTranscript(transcript) }
   }
 
-  // Minutes offset from UTC, positive for timezones ahead of UTC (e.g. IST = 330)
-  const timezoneOffset = -new Date().getTimezoneOffset()
+
 
   return apiFetch<ParseResponse>("/api/parse", {
     method: "POST",
-    body: JSON.stringify({ transcript, timezoneOffset }),
+    body: JSON.stringify({
+      transcript,
+      tzOffset: new Date().getTimezoneOffset(),
+      tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }),
   })
 }

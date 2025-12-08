@@ -28,13 +28,12 @@ Return ONLY a compact JSON object with keys: title, description, due_date, prior
 - status: one of todo, in-progress, done.
 No code blocks, no comments, no extra fields.`;
 
-export const runtime = "nodejs";
-
 export async function POST(req: Request) {
   try {
-    const { transcript, timezoneOffset } = (await req.json()) as {
+    const { transcript, tzOffset } = (await req.json()) as {
       transcript?: string;
-      timezoneOffset?: number; // minutes offset from UTC (e.g. IST = +330)
+      tzOffset?: number;
+      tz?: string;
     };
 
     if (
@@ -52,6 +51,10 @@ export async function POST(req: Request) {
     if (!apiKey) {
       // Fallback to local parser if API key not present
       const parsed = fallbackParse(transcript);
+      if (parsed?.due_date && typeof tzOffset === "number" && Number.isFinite(tzOffset)) {
+        const base = new Date(parsed.due_date);
+        parsed.due_date = new Date(base.getTime() + tzOffset * 60 * 1000).toISOString();
+      }
       return NextResponse.json({ parsed });
     }
 
@@ -203,6 +206,10 @@ export async function POST(req: Request) {
 
     if (!response.ok) {
       const parsed = fallbackParse(transcript);
+      if (parsed?.due_date && typeof tzOffset === "number" && Number.isFinite(tzOffset)) {
+        const base = new Date(parsed.due_date);
+        parsed.due_date = new Date(base.getTime() + tzOffset * 60 * 1000).toISOString();
+      }
       return NextResponse.json({ parsed, note: "fallback_used" });
     }
 
@@ -217,6 +224,10 @@ export async function POST(req: Request) {
 
     if (!content || typeof content !== "string") {
       const parsed = fallbackParse(transcript);
+      if (parsed?.due_date && typeof tzOffset === "number" && Number.isFinite(tzOffset)) {
+        const base = new Date(parsed.due_date);
+        parsed.due_date = new Date(base.getTime() + tzOffset * 60 * 1000).toISOString();
+      }
       return NextResponse.json({ parsed, note: "fallback_used" });
     }
 
@@ -226,6 +237,10 @@ export async function POST(req: Request) {
       console.log("openai.parse.parsedCandidate", candidate);
     } catch {
       const parsed = fallbackParse(transcript);
+      if (parsed?.due_date && typeof tzOffset === "number" && Number.isFinite(tzOffset)) {
+        const base = new Date(parsed.due_date);
+        parsed.due_date = new Date(base.getTime() + tzOffset * 60 * 1000).toISOString();
+      }
       return NextResponse.json({ parsed, note: "fallback_used" });
     }
 
@@ -233,6 +248,10 @@ export async function POST(req: Request) {
     if (!safe.success) {
       console.log("openai.parse.validationError", safe.error?.format?.());
       const parsed = fallbackParse(transcript);
+      if (parsed?.due_date && typeof tzOffset === "number" && Number.isFinite(tzOffset)) {
+        const base = new Date(parsed.due_date);
+        parsed.due_date = new Date(base.getTime() + tzOffset * 60 * 1000).toISOString();
+      }
       return NextResponse.json({ parsed, note: "fallback_used" });
     }
 
@@ -247,23 +266,19 @@ export async function POST(req: Request) {
     }
 
     // Prefer chrono-node for date resolution (handles "tomorrow", etc.)
-    const rawDate = chrono.parseDate(transcript, new Date(), {
+    const chronoDate = chrono.parseDate(transcript, new Date(), {
       forwardDate: true,
     });
-
-    if (rawDate) {
-      if (typeof timezoneOffset === "number") {
-        // timezoneOffset is minutes ahead of UTC (e.g. IST = 330)
-        const corrected = new Date(
-          rawDate.getTime() - timezoneOffset * 60 * 1000
-        );
-        parsedOut.due_date = corrected.toISOString();
+    if (chronoDate) {
+      if (typeof tzOffset === "number" && Number.isFinite(tzOffset)) {
+        const adjusted = new Date(chronoDate.getTime() + tzOffset * 60 * 1000);
+        parsedOut.due_date = adjusted.toISOString();
       } else {
-        // fallback: just use what chrono gave us
-        parsedOut.due_date = rawDate.toISOString();
+        parsedOut.due_date = chronoDate.toISOString();
       }
     }
 
+    // If model omitted due_date/priority/status, defaulting above covers it.
     return NextResponse.json({ parsed: parsedOut });
   } catch (e) {
     console.error("openai.parse.error", e);
