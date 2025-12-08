@@ -77,7 +77,7 @@ export async function POST(req: Request) {
             content: `Extract fields from this: ${transcript}`,
           },
         ],
-        temperature: 0.1,
+        temperature: 0,
       }),
     })
 
